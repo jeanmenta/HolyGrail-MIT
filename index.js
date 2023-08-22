@@ -1,6 +1,5 @@
 var express = require("express");
 var app = express();
-
 const redis = require('redis');
 const client = redis.createClient();
 
@@ -19,34 +18,20 @@ client.on('connect', function () {
 
 function data() {
   return new Promise((resolve, reject) => {
-    client.mget('header', 'left', 'right', 'article', 'footer', function (err, values) {
-      if (err) {
-        reject(err);
-      } else {
-        resolve({
-          header: values[0],
-          left: values[1],
-          right: values[2],
-          article: values[3],
-          footer: values[4]
-        });
+    client.mget(['header', 'left', 'right', 'article', 'footer'],
+      function (err, values) {
+        const data = {
+          header: Number(values[0]),
+          left: Number(values[1]),
+          right: Number(values[2]),
+          article: Number(values[3]),
+          footer: Number(values[4])
+        };
+        err ? reject(null) : resolve(data);
       }
-    });
+    );
   });
 }
-
-app.get("/update/:key/:value", function (req, res) {
-  const key = req.params.key;
-  let value = Number(req.params.value);
-
-  client.set(key, value, function (err, reply) {
-    if (err) {
-      res.status(500).send(err);
-    } else {
-      res.send(reply);
-    }
-  });
-});
 
 app.get("/data", function (req, res) {
   data().then((data) => {
@@ -54,6 +39,25 @@ app.get("/data", function (req, res) {
     res.send(data);
   });
 });
+
+app.get("/update/:key/:value", function (req, res) {
+  const key = req.params.key;
+  let value = Number(req.params.value);
+
+  client.get(key, function (err, reply) {
+    value = Number(reply) + value;
+    client.set(key, value);
+
+    data()
+      .then(data => {
+        console.log(data);
+        res.send(data);
+      });
+  });
+});
+
+
+
 
 app.listen(3000, () => {
   console.log("Running on 3000");
